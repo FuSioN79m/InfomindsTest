@@ -1,3 +1,4 @@
+using Backend.Extensions;
 using MediatR;
 
 namespace Backend.Features.Suppliers;
@@ -29,7 +30,10 @@ internal class SupplierListQueryHandler(BackendContext context) : IRequestHandle
 
         var data = await query.OrderBy(q => q.Name).ToListAsync(cancellationToken);
         var result = new List<SupplierListQueryResponse>();
+        foreach (var item in data)
+            result.Add(item.toSuppliersDto());//fill object using extension method
 
+		/*
         foreach (var item in data)
         {
             var resultItem = new SupplierListQueryResponse
@@ -43,7 +47,8 @@ internal class SupplierListQueryHandler(BackendContext context) : IRequestHandle
             
             result.Add(resultItem);
         }
+        */
 
-        return result;
+		return result;
     }
 }

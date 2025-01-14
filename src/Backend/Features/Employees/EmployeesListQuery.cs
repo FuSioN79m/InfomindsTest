@@ -47,31 +47,32 @@ internal class EmployeesListQueryHandler(BackendContext context) : IRequestHandl
 
 
 		//old code
-		//foreach (var item in data)
-		//      {
-		//          var resultItem = new EmployeesListQueryResponse
-		//          {
-		//              Id = item.Id,
-		//              Code = item.Code,
-		//              FirstName = item.FirstName,
-		//              LastName = item.LastName,
-		//              Address = item.Address,
-		//              Email = item.Email,
-		//              Phone = item.Phone,
-		//          };
+		/*
+		foreach (var item in data)
+		{
+			var resultItem = new EmployeesListQueryResponse
+			{
+				Id = item.Id,
+				Code = item.Code,
+				FirstName = item.FirstName,
+				LastName = item.LastName,
+				Address = item.Address,
+				Email = item.Email,
+				Phone = item.Phone,
+			};
 
-		//          var department = await context.Departments.SingleOrDefaultAsync(q => q.Id == item.DepartmentId, cancellationToken);
-		//          if (department is not null)
-		//              resultItem.Department = new EmployeesListQueryResponseDepartment
-		//              {
-		//                  Code = department.Code,
-		//                  Description = department.Description
-		//              };
+			var department = await context.Departments.SingleOrDefaultAsync(q => q.Id == item.DepartmentId, cancellationToken);
+			if (department is not null)
+				resultItem.Department = new EmployeesListQueryResponseDepartment
+				{
+					Code = department.Code,
+					Description = department.Description
+				};
 
 
-		//          result.Add(resultItem);
-		//      }
-
+			result.Add(resultItem);
+		}
+		*/
 		return result;
 	}
 }
