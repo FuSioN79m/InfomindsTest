@@ -33,7 +33,7 @@ internal class EmployeesListQueryHandler(BackendContext context) : IRequestHandl
 
 	public async Task<List<EmployeesListQueryResponse>> Handle(EmployeesListQuery request, CancellationToken cancellationToken)
 	{
-		//including Department to execute one single query
+		//including Department table data to execute one single query
 		var query = context.Employees.Include(t => t.Department).AsQueryable();
 		if (!string.IsNullOrEmpty(request.FirstName))
 			query = query.Where(q => q.FirstName.ToLower().Contains(request.FirstName.ToLower()));
@@ -46,7 +46,7 @@ internal class EmployeesListQueryHandler(BackendContext context) : IRequestHandl
 			result.Add(item.toEmployeesDto());//fill object using extension method
 
 
-		//old code
+		//previous code that call db n times
 		/*
 		foreach (var item in data)
 		{
