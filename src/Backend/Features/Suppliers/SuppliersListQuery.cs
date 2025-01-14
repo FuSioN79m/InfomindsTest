@@ -33,6 +33,7 @@ internal class SupplierListQueryHandler(BackendContext context) : IRequestHandle
         foreach (var item in data)
             result.Add(item.toSuppliersDto());//fill object using extension method
 
+		//previous code
 		/*
         foreach (var item in data)
         {
