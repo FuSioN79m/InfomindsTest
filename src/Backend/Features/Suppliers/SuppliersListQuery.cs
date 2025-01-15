@@ -18,7 +18,7 @@ public class SupplierListQueryResponse
     public string Phone { get; set; } = "";
 }
 
-internal class SupplierListQueryHandler(BackendContext context) : IRequestHandler<SupplierListQuery, List<SupplierListQueryResponse>>
+public class SupplierListQueryHandler(BackendContext context) : IRequestHandler<SupplierListQuery, List<SupplierListQueryResponse>>
 {
     private readonly BackendContext context = context;
 

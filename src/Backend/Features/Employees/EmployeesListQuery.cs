@@ -27,7 +27,7 @@ public class EmployeesListQueryResponseDepartment
 }
 
 
-internal class EmployeesListQueryHandler(BackendContext context) : IRequestHandler<EmployeesListQuery, List<EmployeesListQueryResponse>>
+public class EmployeesListQueryHandler(BackendContext context) : IRequestHandler<EmployeesListQuery, List<EmployeesListQueryResponse>>
 {
 	private readonly BackendContext context = context;
 

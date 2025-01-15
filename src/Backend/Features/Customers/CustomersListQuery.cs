@@ -30,7 +30,7 @@ public class CustomersListQueryResponseCategory
 
 
 
-internal class CustomersListQueryHandler : IRequestHandler<CustomersListQuery, List<CustomersListQueryResponse>>
+public class CustomersListQueryHandler : IRequestHandler<CustomersListQuery, List<CustomersListQueryResponse>>
 {
 	private readonly BackendContext context;
 
