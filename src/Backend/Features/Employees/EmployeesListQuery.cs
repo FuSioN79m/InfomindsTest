@@ -2,36 +2,18 @@ using Backend.Extensions;
 
 namespace Backend.Features.Employees;
 
-public class EmployeesListQuery : IRequest<List<EmployeesListQueryResponse>>
+public class EmployeesListQuery : IRequest<List<EmployeesListQueryResponseDto>>
 {
 	public string? FirstName { get; set; }
 	public string? LastName { get; set; }
 }
 
-public class EmployeesListQueryResponse
-{
-	public int Id { get; set; }
-	public string Code { get; internal set; } = "";
-	public string FirstName { get; set; } = "";
-	public string LastName { get; set; } = "";
-	public string Address { get; set; } = "";
-	public string Email { get; set; } = "";
-	public string Phone { get; set; } = "";
-	public EmployeesListQueryResponseDepartment? Department { get; set; }
-}
 
-public class EmployeesListQueryResponseDepartment
-{
-	public string Code { get; set; } = "";
-	public string Description { get; set; } = "";
-}
-
-
-public class EmployeesListQueryHandler(BackendContext context) : IRequestHandler<EmployeesListQuery, List<EmployeesListQueryResponse>>
+public class EmployeesListQueryHandler(BackendContext context) : IRequestHandler<EmployeesListQuery, List<EmployeesListQueryResponseDto>>
 {
 	private readonly BackendContext context = context;
 
-	public async Task<List<EmployeesListQueryResponse>> Handle(EmployeesListQuery request, CancellationToken cancellationToken)
+	public async Task<List<EmployeesListQueryResponseDto>> Handle(EmployeesListQuery request, CancellationToken cancellationToken)
 	{
 		//including Department table data to execute one single query
 		var query = context.Employees.Include(t => t.Department).AsQueryable();
@@ -41,7 +23,7 @@ public class EmployeesListQueryHandler(BackendContext context) : IRequestHandler
 			query = query.Where(q => q.LastName.ToLower().Contains(request.LastName.ToLower()));
 
 		var data = await query.OrderBy(q => q.LastName).ThenBy(q => q.FirstName).ToListAsync(cancellationToken);
-		var result = new List<EmployeesListQueryResponse>();
+		var result = new List<EmployeesListQueryResponseDto>();
 		foreach (var item in data)
 			result.Add(item.toEmployeesDto());//fill object using extension method
 

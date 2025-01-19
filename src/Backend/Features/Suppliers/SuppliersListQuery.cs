@@ -4,32 +4,23 @@ using MediatR;
 namespace Backend.Features.Suppliers;
 
 
-public class SupplierListQuery : IRequest<List<SupplierListQueryResponse>>
+public class SupplierListQuery : IRequest<List<SupplierListQueryResponseDto>>
 {
     public string? Name { get; set; }
 }
 
-public class SupplierListQueryResponse
-{
-    public int Id { get; set; }
-    public string Name { get; set; } = "";
-    public string Address { get; set; } = "";
-    public string Email { get; set; } = "";
-    public string Phone { get; set; } = "";
-}
-
-public class SupplierListQueryHandler(BackendContext context) : IRequestHandler<SupplierListQuery, List<SupplierListQueryResponse>>
+public class SupplierListQueryHandler(BackendContext context) : IRequestHandler<SupplierListQuery, List<SupplierListQueryResponseDto>>
 {
     private readonly BackendContext context = context;
 
-    public async Task<List<SupplierListQueryResponse>> Handle(SupplierListQuery request, CancellationToken cancellationToken)
+    public async Task<List<SupplierListQueryResponseDto>> Handle(SupplierListQuery request, CancellationToken cancellationToken)
     {
         var query = context.Suppliers.AsQueryable();
         if (!string.IsNullOrEmpty(request.Name))
             query = query.Where(q => q.Name.ToLower().Contains(request.Name.ToLower()));
 
         var data = await query.OrderBy(q => q.Name).ToListAsync(cancellationToken);
-        var result = new List<SupplierListQueryResponse>();
+        var result = new List<SupplierListQueryResponseDto>();
         foreach (var item in data)
             result.Add(item.toSuppliersDto());//fill object using extension method
 

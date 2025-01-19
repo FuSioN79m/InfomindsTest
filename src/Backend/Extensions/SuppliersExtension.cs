@@ -4,9 +4,9 @@ namespace Backend.Extensions
 {
 	public static class SuppliersExtension
 	{
-		public static SupplierListQueryResponse toSuppliersDto(this Supplier c)
+		public static SupplierListQueryResponseDto toSuppliersDto(this Supplier c)
 		{
-			return new SupplierListQueryResponse()
+			return new SupplierListQueryResponseDto()
 			{
 				Id = c.Id,
 				Name = c.Name,

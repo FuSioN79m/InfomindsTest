@@ -3,34 +3,15 @@ using System.Runtime.CompilerServices;
 
 namespace Backend.Features.Customers;
 
-public class CustomersListQuery : IRequest<List<CustomersListQueryResponse>>
+public class CustomersListQuery : IRequest<List<CustomersListQueryResponseDto>>
 {
 	public string? Name { get; set; }
 	public string? Email { get; set; }
 }
 
-public class CustomersListQueryResponse
-{
-
-	public int Id { get; set; }
-	public string Name { get; set; } = "";
-	public string Address { get; set; } = "";
-	public string Email { get; set; } = "";
-	public string Phone { get; set; } = "";
-	public string Iban { get; set; } = "";
-	public CustomersListQueryResponseCategory? Category { get; set; }
-}
 
 
-public class CustomersListQueryResponseCategory
-{
-	public string Code { get; set; } = "";
-	public string Description { get; set; } = "";
-}
-
-
-
-public class CustomersListQueryHandler : IRequestHandler<CustomersListQuery, List<CustomersListQueryResponse>>
+public class CustomersListQueryHandler : IRequestHandler<CustomersListQuery, List<CustomersListQueryResponseDto>>
 {
 	private readonly BackendContext context;
 
@@ -39,7 +20,7 @@ public class CustomersListQueryHandler : IRequestHandler<CustomersListQuery, Lis
 		this.context = context;
 	}
 
-	public async Task<List<CustomersListQueryResponse>> Handle(CustomersListQuery request, CancellationToken cancellationToken)
+	public async Task<List<CustomersListQueryResponseDto>> Handle(CustomersListQuery request, CancellationToken cancellationToken)
 	{
 		//including CustomerCategory table data to execute one single query
 		var query = context.Customers.Include(t=>t.CustomerCategory).AsQueryable();
@@ -49,7 +30,7 @@ public class CustomersListQueryHandler : IRequestHandler<CustomersListQuery, Lis
 			query = query.Where(q => q.Email.ToLower().Contains(request.Email.ToLower()));
 
 		var data = await query.OrderBy(q => q.Name).ThenBy(q => q.Email).ToListAsync(cancellationToken);
-		var result = new List<CustomersListQueryResponse>();
+		var result = new List<CustomersListQueryResponseDto>();
 		foreach (var item in data)
 			result.Add(item.toCustomersDto());//fill object using extension method
 

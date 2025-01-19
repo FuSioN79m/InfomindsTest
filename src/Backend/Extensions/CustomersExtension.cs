@@ -4,9 +4,9 @@ namespace Backend.Extensions
 {
 	public static class CustomersExtension
 	{
-		public static CustomersListQueryResponse toCustomersDto(this Customer c)
+		public static CustomersListQueryResponseDto toCustomersDto(this Customer c)
 		{
-			return new CustomersListQueryResponse()
+			return new CustomersListQueryResponseDto()
 			{
 				Id = c.Id,
 				Name = c.Name,
@@ -14,7 +14,7 @@ namespace Backend.Extensions
 				Email = c.Email,
 				Phone = c.Phone,
 				Iban = c.Iban,
-				Category = c.CustomerCategory == null ? null : new CustomersListQueryResponseCategory() {Code = c.CustomerCategory.Code, Description = c.CustomerCategory.Description},
+				Category = c.CustomerCategory == null ? null : new CustomersListQueryResponseCategoryDto() {Code = c.CustomerCategory.Code, Description = c.CustomerCategory.Description},
 			};
 		}
 	}

@@ -4,14 +4,14 @@ namespace Backend.Extensions
 {
 	public static class EmployeesExtension
 	{
-		public static EmployeesListQueryResponse toEmployeesDto(this Employee c)
+		public static EmployeesListQueryResponseDto toEmployeesDto(this Employee c)
 		{
-			return new EmployeesListQueryResponse()
+			return new EmployeesListQueryResponseDto()
 			{
 				Id = c.Id,
 				Address = c.Address,
 				Code = c.Code,
-				Department = c.Department == null ? null : new EmployeesListQueryResponseDepartment() { Code =  c.Department.Code, Description = c.Department.Description },
+				Department = c.Department == null ? null : new EmployeesListQueryResponseDepartmentDto() { Code =  c.Department.Code, Description = c.Department.Description },
 				Email = c.Email,
 				FirstName = c.FirstName,
 				LastName = c.LastName,
