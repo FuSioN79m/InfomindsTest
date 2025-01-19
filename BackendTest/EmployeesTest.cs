@@ -1,32 +1,21 @@
 ﻿using Backend.Features.Employees;
 using Backend.Infrastructure.Database;
+using Backend.Service.IService;
 using Microsoft.EntityFrameworkCore;
+using Moq;
 
 namespace BackendTest
 {
 	public class EmployeesTest
 	{
-		
-        private readonly BackendContext _context;
+		private readonly Mock<IEmployeesService> _employeesServiceMock;
 		private readonly List<Employee> _testEmployees;
-		private readonly List<Department> _testDepartments;
 
 		public EmployeesTest()
 		{
-			var options = new DbContextOptionsBuilder<BackendContext>()
-				.UseInMemoryDatabase(databaseName: "TestDatabase_" + System.Guid.NewGuid())
-				.Options;
+			_employeesServiceMock = new Mock<IEmployeesService>();
 
-			_context = new BackendContext(options);
-
-			// Setup test departments
-			_testDepartments = new List<Department>
-			{
-				new Department { Id = 1, Code = "IT", Description = "Information Technology" },
-				new Department { Id = 2, Code = "HR", Description = "Human Resources" }
-			};
-
-			// Setup test employees
+			// Setup test data
 			_testEmployees = new List<Employee>
 			{
 				new Employee
@@ -38,8 +27,12 @@ namespace BackendTest
 					Address = "123 Main St",
 					Email = "mike.test@test.com",
 					Phone = "987654321",
-					DepartmentId = 1,
-					Department = _testDepartments[0]
+					Department = new Department
+					{
+						Id = 1,
+						Code = "IT",
+						Description = "Information Technology"
+					}
 				},
 				new Employee
 				{
@@ -50,137 +43,152 @@ namespace BackendTest
 					Address = "456 Oak Ave",
 					Email = "john.Connor@test.com",
 					Phone = "089556677",
-					DepartmentId = null,
-					Department = null
-				},
-				new Employee
-				{
-					Id = 3,
-					Code = "EMP003",
-					FirstName = "Sarah",
-					LastName = "Connor",
-					Address = "789 Pine St",
-					Email = "sarah.connor@test.com",
-					Phone = "123456789",
-					DepartmentId = 1,
-					Department = _testDepartments[1]
+					Department = new Department
+					{
+						Id = 2,
+						Code = "HR",
+						Description = "Human Resources"
+					}
 				}
 			};
-
-			_context.Departments.AddRange(_testDepartments);
-			_context.Employees.AddRange(_testEmployees);
-			_context.SaveChanges();
-		}
-
-		public void Dispose()
-		{
-			_context.Database.EnsureDeleted();
-			_context.Dispose();
 		}
 
 		[Fact]
 		public async Task Handle_NoFilter_ReturnsAllEmployees()
 		{
 			// Arrange
-			var handler = new EmployeesListQueryHandler(_context);
 			var request = new EmployeesListQuery();
+			_employeesServiceMock.Setup(x => x.GetEmployees(request, It.IsAny<CancellationToken>()))
+				.ReturnsAsync(_testEmployees);
+
+			var handler = new EmployeesListQueryHandler(_employeesServiceMock.Object);
 
 			// Act
 			var result = await handler.Handle(request, CancellationToken.None);
 
 			// Assert
 			Assert.Equal(_testEmployees.Count, result.Count);
-
-			// Verify ordering (by LastName, then FirstName)
-			Assert.Equal("Connor", result[0].LastName);
-			Assert.Equal("Connor", result[1].LastName);
-			Assert.Equal("Test", result[2].LastName);
-			Assert.Equal("Sarah", result[1].FirstName); // Jane Smith should come before John Smith
+			_employeesServiceMock.Verify(x => x.GetEmployees(request, It.IsAny<CancellationToken>()), Times.Once);
 		}
 
 		[Fact]
-		public async Task Handle_WithFirstNameFilter_ReturnsFilteredEmployees()
+		public async Task Handle_WithFirstNameFilter_CallsServiceWithCorrectParameters()
 		{
 			// Arrange
-			var handler = new EmployeesListQueryHandler(_context);
-			var request = new EmployeesListQuery { FirstName = "john" };
+			var request = new EmployeesListQuery { FirstName = "Mike" };
+			var filteredEmployees = _testEmployees.Where(e => e.FirstName.Contains("Mike")).ToList();
+
+			_employeesServiceMock.Setup(x => x.GetEmployees(request, It.IsAny<CancellationToken>()))
+				.ReturnsAsync(filteredEmployees);
+
+			var handler = new EmployeesListQueryHandler(_employeesServiceMock.Object);
 
 			// Act
 			var result = await handler.Handle(request, CancellationToken.None);
 
 			// Assert
 			Assert.Single(result);
-			Assert.All(result, r => Assert.Contains("John", r.FirstName, StringComparison.OrdinalIgnoreCase));
+			Assert.Equal("Mike", result[0].FirstName);
+			_employeesServiceMock.Verify(x => x.GetEmployees(
+				It.Is<EmployeesListQuery>(q => q.FirstName == "Mike"),
+				It.IsAny<CancellationToken>()),
+				Times.Once);
 		}
 
 		[Fact]
-		public async Task Handle_WithLastNameFilter_ReturnsFilteredEmployees()
+		public async Task Handle_WithLastNameFilter_CallsServiceWithCorrectParameters()
 		{
 			// Arrange
-			var handler = new EmployeesListQueryHandler(_context);
-			var request = new EmployeesListQuery { LastName = "connor" };
+			var request = new EmployeesListQuery { LastName = "Connor" };
+			var filteredEmployees = _testEmployees.Where(e => e.LastName == "Connor").ToList();
+
+			_employeesServiceMock.Setup(x => x.GetEmployees(request, It.IsAny<CancellationToken>()))
+				.ReturnsAsync(filteredEmployees);
+
+			var handler = new EmployeesListQueryHandler(_employeesServiceMock.Object);
 
 			// Act
 			var result = await handler.Handle(request, CancellationToken.None);
 
 			// Assert
-			Assert.Equal(2, result.Count);
-			Assert.All(result, r => Assert.Contains("connor", r.LastName, StringComparison.OrdinalIgnoreCase));
+			Assert.Single(result);
+			Assert.Equal("Connor", result[0].LastName);
+			_employeesServiceMock.Verify(x => x.GetEmployees(
+				It.Is<EmployeesListQuery>(q => q.LastName == "Connor"),
+				It.IsAny<CancellationToken>()),
+				Times.Once);
 		}
 
 		[Fact]
-		public async Task Handle_WithBothFilters_ReturnsFilteredEmployees()
+		public async Task Handle_WithBothFilters_CallsServiceWithCorrectParameters()
 		{
 			// Arrange
-			var handler = new EmployeesListQueryHandler(_context);
 			var request = new EmployeesListQuery
 			{
-				FirstName = "john",
-				LastName = "connor"
+				FirstName = "John",
+				LastName = "Connor"
 			};
+
+			var filteredEmployees = _testEmployees
+				.Where(e => e.FirstName == "John" && e.LastName == "Connor")
+				.ToList();
+
+			_employeesServiceMock.Setup(x => x.GetEmployees(request, It.IsAny<CancellationToken>()))
+				.ReturnsAsync(filteredEmployees);
+
+			var handler = new EmployeesListQueryHandler(_employeesServiceMock.Object);
 
 			// Act
 			var result = await handler.Handle(request, CancellationToken.None);
 
 			// Assert
 			Assert.Single(result);
-			Assert.Equal("john", result[0].FirstName, ignoreCase: true);
-			Assert.Equal("connor", result[0].LastName, ignoreCase: true);
+			Assert.Equal("John", result[0].FirstName);
+			Assert.Equal("Connor", result[0].LastName);
+			_employeesServiceMock.Verify(x => x.GetEmployees(request, It.IsAny<CancellationToken>()), Times.Once);
 		}
 
 		[Fact]
-		public async Task Handle_WithNonExistingName_ReturnsEmptyList()
+		public async Task Handle_ServiceReturnsEmptyList_ReturnsEmptyResult()
 		{
 			// Arrange
-			var handler = new EmployeesListQueryHandler(_context);
 			var request = new EmployeesListQuery { FirstName = "NonExisting" };
+			_employeesServiceMock.Setup(x => x.GetEmployees(request, It.IsAny<CancellationToken>()))
+				.ReturnsAsync(new List<Employee>());
+
+			var handler = new EmployeesListQueryHandler(_employeesServiceMock.Object);
 
 			// Act
 			var result = await handler.Handle(request, CancellationToken.None);
 
 			// Assert
 			Assert.Empty(result);
+			_employeesServiceMock.Verify(x => x.GetEmployees(request, It.IsAny<CancellationToken>()), Times.Once);
 		}
 
 		[Fact]
-		public async Task Handle_VerifyDepartmentData_ReturnsCorrectDepartmentInfo()
+		public async Task Handle_VerifyDepartmentMapping_ReturnsMappedDepartmentInfo()
 		{
 			// Arrange
-			var handler = new EmployeesListQueryHandler(_context);
-			var request = new EmployeesListQuery();
+			var request = new EmployeesListQuery { FirstName = "Mike" };
+			var employee = _testEmployees.First();
+
+			_employeesServiceMock.Setup(x => x.GetEmployees(request, It.IsAny<CancellationToken>()))
+				.ReturnsAsync(new List<Employee> { employee });
+
+			var handler = new EmployeesListQueryHandler(_employeesServiceMock.Object);
 
 			// Act
 			var result = await handler.Handle(request, CancellationToken.None);
 
 			// Assert
-			var itEmployee = result.First(e => e.Code == "EMP001");
-			Assert.NotNull(itEmployee.Department);
-			Assert.Equal("IT", itEmployee.Department.Code);
-			Assert.Equal("Information Technology", itEmployee.Department.Description);
-
-			var hrEmployee = result.First(e => e.Code == "EMP002");
-			Assert.Null(hrEmployee.Department);
-			
+			Assert.Single(result);
+			var employeeDto = result[0];
+			Assert.NotNull(employeeDto.Department);
+			Assert.Equal("IT", employeeDto.Department.Code);
+			Assert.Equal("Information Technology", employeeDto.Department.Description);
 		}
+
+
 	}
 }

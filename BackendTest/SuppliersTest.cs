@@ -1,80 +1,126 @@
 ﻿using Backend.Features.Suppliers;
 using Backend.Infrastructure.Database;
+using Backend.Service.IService;
 using Microsoft.EntityFrameworkCore;
+using Moq;
 
 namespace BackendTest
 {
 	public class SupplierListQueryHandlerTests
 	{
-		private readonly BackendContext _context;
+		private readonly Mock<ISuppliersService> _suppliersServiceMock;
 		private readonly List<Supplier> _testSuppliers;
 
 		public SupplierListQueryHandlerTests()
 		{
-			var options = new DbContextOptionsBuilder<BackendContext>()
-				.UseInMemoryDatabase(databaseName: "TestDatabase_" + System.Guid.NewGuid())
-				.Options;
+			_suppliersServiceMock = new Mock<ISuppliersService>();
 
-			_context = new BackendContext(options);
-
+			// Setup test data
 			_testSuppliers = new List<Supplier>
-		{
-			new Supplier { Id = 1, Name = "Supplier A", Address = "Address A", Email = "a@test.com", Phone = "1111" },
-			new Supplier { Id = 2, Name = "Supplier B", Address = "Address B", Email = "b@test.com", Phone = "2222" },
-			new Supplier { Id = 3, Name = "Different Name", Address = "Address C", Email = "c@test.com", Phone = "3333" }
-		};
-
-			_context.Suppliers.AddRange(_testSuppliers);
-			_context.SaveChanges();
-		}
-
-		public void Dispose()
-		{
-			_context.Database.EnsureDeleted();
-			_context.Dispose();
+			{
+				new Supplier
+				{
+					Id = 1,
+					Name = "ABC Suppliers",
+					Address = "123 Supply St",
+					Email = "contact@abcsuppliers.com",
+					Phone = "1234567890"
+				},
+				new Supplier
+				{
+					Id = 2,
+					Name = "XYZ Corporation",
+					Address = "456 Corp Ave",
+					Email = "info@xyzcorp.com",
+					Phone = "0987654321"
+				}
+			};
 		}
 
 		[Fact]
 		public async Task Handle_NoFilter_ReturnsAllSuppliers()
 		{
 			// Arrange
-			var handler = new SupplierListQueryHandler(_context);
-			var request = new SupplierListQuery { Name = null };
+			var request = new SupplierListQuery();
+			_suppliersServiceMock.Setup(x => x.GetSuppliers(request, It.IsAny<CancellationToken>()))
+				.ReturnsAsync(_testSuppliers);
+
+			var handler = new SupplierListQueryHandler(_suppliersServiceMock.Object);
 
 			// Act
 			var result = await handler.Handle(request, CancellationToken.None);
 
 			// Assert
 			Assert.Equal(_testSuppliers.Count, result.Count);
+			_suppliersServiceMock.Verify(x => x.GetSuppliers(request, It.IsAny<CancellationToken>()), Times.Once);
 		}
 
 		[Fact]
-		public async Task Handle_WithNameFilter_ReturnsFilteredSuppliers()
+		public async Task Handle_WithNameFilter_CallsServiceWithCorrectParameters()
 		{
 			// Arrange
-			var handler = new SupplierListQueryHandler(_context);
-			var request = new SupplierListQuery { Name = "supplier" };
+			var request = new SupplierListQuery { Name = "ABC" };
+			var filteredSuppliers = _testSuppliers.Where(s => s.Name.Contains("ABC")).ToList();
+
+			_suppliersServiceMock.Setup(x => x.GetSuppliers(request, It.IsAny<CancellationToken>()))
+				.ReturnsAsync(filteredSuppliers);
+
+			var handler = new SupplierListQueryHandler(_suppliersServiceMock.Object);
 
 			// Act
 			var result = await handler.Handle(request, CancellationToken.None);
 
 			// Assert
-			Assert.Equal(2, result.Count);
-			Assert.All(result, item => Assert.Contains("Supplier", item.Name, StringComparison.OrdinalIgnoreCase));
+			Assert.Single(result);
+			Assert.Equal("ABC Suppliers", result[0].Name);
+			_suppliersServiceMock.Verify(x => x.GetSuppliers(
+				It.Is<SupplierListQuery>(q => q.Name == "ABC"),
+				It.IsAny<CancellationToken>()),
+				Times.Once);
 		}
 
 		[Fact]
-		public async Task Handle_WithNonExistingName_ReturnsEmptyList()
+		public async Task Handle_ServiceReturnsEmptyList_ReturnsEmptyResult()
 		{
 			// Arrange
-			var handler = new SupplierListQueryHandler(_context);
 			var request = new SupplierListQuery { Name = "NonExisting" };
+			_suppliersServiceMock.Setup(x => x.GetSuppliers(request, It.IsAny<CancellationToken>()))
+				.ReturnsAsync(new List<Supplier>());
+
+			var handler = new SupplierListQueryHandler(_suppliersServiceMock.Object);
 
 			// Act
 			var result = await handler.Handle(request, CancellationToken.None);
 
 			// Assert
 			Assert.Empty(result);
+			_suppliersServiceMock.Verify(x => x.GetSuppliers(request, It.IsAny<CancellationToken>()), Times.Once);
 		}
+
+		[Fact]
+		public async Task Handle_VerifySupplierMapping_ReturnsMappedSupplierInfo()
+		{
+			// Arrange
+			var request = new SupplierListQuery { Name = "ABC" };
+			var supplier = _testSuppliers.First();
+
+			_suppliersServiceMock.Setup(x => x.GetSuppliers(request, It.IsAny<CancellationToken>()))
+				.ReturnsAsync(new List<Supplier> { supplier });
+
+			var handler = new SupplierListQueryHandler(_suppliersServiceMock.Object);
+
+			// Act
+			var result = await handler.Handle(request, CancellationToken.None);
+
+			// Assert
+			Assert.Single(result);
+			var supplierDto = result[0];
+			Assert.Equal(supplier.Id, supplierDto.Id);
+			Assert.Equal(supplier.Name, supplierDto.Name);
+			Assert.Equal(supplier.Address, supplierDto.Address);
+			Assert.Equal(supplier.Email, supplierDto.Email);
+			Assert.Equal(supplier.Phone, supplierDto.Phone);
+		}
+
 	}
 }

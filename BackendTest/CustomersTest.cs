@@ -1,6 +1,9 @@
 ﻿using Backend.Features.Customers;
 using Backend.Infrastructure.Database;
+using Backend.Service;
+using Backend.Service.IService;
 using Microsoft.EntityFrameworkCore;
+using Moq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,27 +15,14 @@ namespace BackendTest
 	public class CustomersTest
 	{
 
-
-		private readonly BackendContext _context;
+		private readonly Mock<ICustomersService> _customersServiceMock;
 		private readonly List<Customer> _testCustomers;
-		private readonly List<CustomerCategory> _testCategories;
 
 		public CustomersTest()
 		{
-			var options = new DbContextOptionsBuilder<BackendContext>()
-				.UseInMemoryDatabase(databaseName: "TestDatabase_" + System.Guid.NewGuid())
-				.Options;
+			_customersServiceMock = new Mock<ICustomersService>();
 
-			_context = new BackendContext(options);
-
-			// Setup test categories
-			_testCategories = new List<CustomerCategory>
-			{
-				new CustomerCategory { Id = 1, Code = "RETAIL", Description = "Retail Customer" },
-				new CustomerCategory { Id = 2, Code = "CORP", Description = "Corporate Customer" }
-			};
-
-			// Setup test customers
+			// Setup test data
 			_testCustomers = new List<Customer>
 			{
 				new Customer
@@ -43,168 +33,142 @@ namespace BackendTest
 					Email = "google@google.com",
 					Phone = "1234567890",
 					Iban = "IT60X0542811101000000123456",
-					CustomerCategoryId = 2,
-					CustomerCategory = _testCategories[1]
+					CustomerCategory = new CustomerCategory
+					{
+						Id = 2,
+						Code = "CORP",
+						Description = "Corporate Customer"
+					}
 				},
 				new Customer
 				{
 					Id = 2,
-					Name = "John",
-					Address = "via monte napoleone",
-					Email = "john@shop.com",
-					Phone = "0987654321",
-					Iban = "IT60X0542811101000000654321",
-					CustomerCategoryId = null,
-					CustomerCategory = null
-				},
-				new Customer
-				{
-					Id = 3,
 					Name = "Pippo Baudo",
 					Address = "Via dei mille, Messina",
 					Email = "pippo@baudo.com",
 					Phone = "5555555555",
 					Iban = "IT60X0542811101000000987654",
-					CustomerCategoryId = 1,
-					CustomerCategory = _testCategories[0]
+					CustomerCategory = new CustomerCategory
+					{
+						Id = 1,
+						Code = "RETAIL",
+						Description = "Retail Customer"
+					}
 				}
 			};
-
-			_context.CustomerCategories.AddRange(_testCategories);
-			_context.Customers.AddRange(_testCustomers);
-			_context.SaveChanges();
-		}
-
-		public void Dispose()
-		{
-			_context.Database.EnsureDeleted();
-			_context.Dispose();
 		}
 
 		[Fact]
 		public async Task Handle_NoFilter_ReturnsAllCustomers()
 		{
 			// Arrange
-			var handler = new CustomersListQueryHandler(_context);
 			var request = new CustomersListQuery();
+			_customersServiceMock.Setup(x => x.GetCustomers(request, It.IsAny<CancellationToken>()))
+				.ReturnsAsync(_testCustomers);
+
+			var handler = new CustomersListQueryHandler(_customersServiceMock.Object);
 
 			// Act
 			var result = await handler.Handle(request, CancellationToken.None);
 
 			// Assert
 			Assert.Equal(_testCustomers.Count, result.Count);
-			Assert.Null(result[1].Category);
-
-			// Verify ordering by Name
-			Assert.Equal("Google Corporation", result[0].Name, ignoreCase: true);
-			Assert.Equal("john", result[1].Name, ignoreCase: true);
-			Assert.Equal("pippo baudo", result[2].Name, ignoreCase: true);
+			_customersServiceMock.Verify(x => x.GetCustomers(request, It.IsAny<CancellationToken>()), Times.Once);
 		}
 
 		[Fact]
-		public async Task Handle_WithNameFilter_ReturnsFilteredCustomers()
+		public async Task Handle_WithNameFilter_CallsServiceWithCorrectParameters()
 		{
 			// Arrange
-			var handler = new CustomersListQueryHandler(_context);
-			var request = new CustomersListQuery { Name = "pippo" };
+			var request = new CustomersListQuery { Name = "Google" };
+			var filteredCustomers = _testCustomers.Where(c => c.Name.Contains("Google")).ToList();
+
+			_customersServiceMock.Setup(x => x.GetCustomers(request, It.IsAny<CancellationToken>()))
+				.ReturnsAsync(filteredCustomers);
+
+			var handler = new CustomersListQueryHandler(_customersServiceMock.Object);
 
 			// Act
 			var result = await handler.Handle(request, CancellationToken.None);
 
 			// Assert
 			Assert.Single(result);
-			Assert.All(result, r => Assert.Contains("pippo", r.Name, StringComparison.OrdinalIgnoreCase));
+			Assert.Equal("Google Corporation", result[0].Name);
+			_customersServiceMock.Verify(x => x.GetCustomers(
+				It.Is<CustomersListQuery>(q => q.Name == "Google"),
+				It.IsAny<CancellationToken>()),
+				Times.Once);
 		}
 
 		[Fact]
-		public async Task Handle_WithEmailFilter_ReturnsFilteredCustomers()
+		public async Task Handle_WithEmailFilter_CallsServiceWithCorrectParameters()
 		{
 			// Arrange
-			var handler = new CustomersListQueryHandler(_context);
-			var request = new CustomersListQuery { Email = "google" };
+			var request = new CustomersListQuery { Email = "google@google.com" };
+			var filteredCustomers = _testCustomers.Where(c => c.Email == "google@google.com").ToList();
+
+			_customersServiceMock.Setup(x => x.GetCustomers(request, It.IsAny<CancellationToken>()))
+				.ReturnsAsync(filteredCustomers);
+
+			var handler = new CustomersListQueryHandler(_customersServiceMock.Object);
 
 			// Act
 			var result = await handler.Handle(request, CancellationToken.None);
 
 			// Assert
 			Assert.Single(result);
-			Assert.All(result, r => Assert.Contains("google", r.Email, StringComparison.OrdinalIgnoreCase));
+			Assert.Equal("google@google.com", result[0].Email);
+			_customersServiceMock.Verify(x => x.GetCustomers(
+				It.Is<CustomersListQuery>(q => q.Email == "google@google.com"),
+				It.IsAny<CancellationToken>()),
+				Times.Once);
 		}
 
 		[Fact]
-		public async Task Handle_WithBothFilters_ReturnsFilteredCustomers()
+		public async Task Handle_WithBothFilters_CallsServiceWithCorrectParameters()
 		{
 			// Arrange
-			var handler = new CustomersListQueryHandler(_context);
 			var request = new CustomersListQuery
 			{
-				Name = "google",
-				Email = "google"
+				Name = "Google Corporation",
+				Email = "google@google.com"
 			};
+
+			var filteredCustomers = _testCustomers
+				.Where(c => c.Name.Contains("Google") && c.Email == "google@google.com")
+				.ToList();
+
+			_customersServiceMock.Setup(x => x.GetCustomers(request, It.IsAny<CancellationToken>()))
+				.ReturnsAsync(filteredCustomers);
+
+			var handler = new CustomersListQueryHandler(_customersServiceMock.Object);
 
 			// Act
 			var result = await handler.Handle(request, CancellationToken.None);
 
 			// Assert
 			Assert.Single(result);
-			Assert.Equal("google corporation", result[0].Name, ignoreCase: true);
-			Assert.Equal("google@google.com", result[0].Email, ignoreCase: true);
+			Assert.Equal("Google Corporation", result[0].Name);
+			Assert.Equal("google@google.com", result[0].Email);
+			_customersServiceMock.Verify(x => x.GetCustomers(request, It.IsAny<CancellationToken>()), Times.Once);
 		}
 
 		[Fact]
-		public async Task Handle_WithNonExistingName_ReturnsEmptyList()
+		public async Task Handle_ServiceReturnsEmptyList_ReturnsEmptyResult()
 		{
 			// Arrange
-			var handler = new CustomersListQueryHandler(_context);
 			var request = new CustomersListQuery { Name = "NonExisting" };
+			_customersServiceMock.Setup(x => x.GetCustomers(request, It.IsAny<CancellationToken>()))
+				.ReturnsAsync(new List<Customer>());
+
+			var handler = new CustomersListQueryHandler(_customersServiceMock.Object);
 
 			// Act
 			var result = await handler.Handle(request, CancellationToken.None);
 
 			// Assert
 			Assert.Empty(result);
-		}
-
-		[Fact]
-		public async Task Handle_VerifyCategoryData_ReturnsCorrectCategoryInfo()
-		{
-			// Arrange
-			var handler = new CustomersListQueryHandler(_context);
-			var request = new CustomersListQuery();
-
-			// Act
-			var result = await handler.Handle(request, CancellationToken.None);
-
-			// Assert
-			var corporateCustomer = result.First(c => c.Name == "Google Corporation");
-			Assert.NotNull(corporateCustomer.Category);
-			Assert.Equal("CORP", corporateCustomer.Category.Code);
-			Assert.Equal("Corporate Customer", corporateCustomer.Category.Description);
-
-			var retailCustomer = result.First(c => c.Name == "Pippo Baudo");
-			Assert.NotNull(retailCustomer.Category);
-			Assert.Equal("RETAIL", retailCustomer.Category.Code);
-			Assert.Equal("Retail Customer", retailCustomer.Category.Description);
-		}
-
-		[Fact]
-		public async Task Handle_VerifyCustomerDetails_ReturnsCompleteCustomerInfo()
-		{
-			// Arrange
-			var handler = new CustomersListQueryHandler(_context);
-			var request = new CustomersListQuery { Name = "Pippo Baudo" };
-
-			// Act
-			var result = await handler.Handle(request, CancellationToken.None);
-
-			// Assert
-			Assert.Single(result);
-			var customer = result[0];
-			Assert.Equal(3, customer.Id);
-			Assert.Equal("Via dei mille, Messina", customer.Address);
-			Assert.Equal("5555555555", customer.Phone);
-			Assert.Equal("IT60X0542811101000000987654", customer.Iban);
-			Assert.NotNull(customer.Category);
+			_customersServiceMock.Verify(x => x.GetCustomers(request, It.IsAny<CancellationToken>()), Times.Once);
 		}
 
 	}

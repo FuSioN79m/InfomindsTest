@@ -1,4 +1,5 @@
 using Backend.Extensions;
+using Backend.Service.IService;
 using System.Runtime.CompilerServices;
 
 namespace Backend.Features.Customers;
@@ -11,28 +12,28 @@ public class CustomersListQuery : IRequest<List<CustomersListQueryResponseDto>>
 
 
 
-public class CustomersListQueryHandler : IRequestHandler<CustomersListQuery, List<CustomersListQueryResponseDto>>
+public class CustomersListQueryHandler(ICustomersService customersService) : IRequestHandler<CustomersListQuery, List<CustomersListQueryResponseDto>>
 {
-	private readonly BackendContext context;
+	private readonly ICustomersService _customersService = customersService;
 
-	public CustomersListQueryHandler(BackendContext context)
-	{
-		this.context = context;
-	}
 
 	public async Task<List<CustomersListQueryResponseDto>> Handle(CustomersListQuery request, CancellationToken cancellationToken)
 	{
-		//including CustomerCategory table data to execute one single query
-		var query = context.Customers.Include(t=>t.CustomerCategory).AsQueryable();
-		if (!string.IsNullOrEmpty(request.Name))
-			query = query.Where(q => q.Name.ToLower().Contains(request.Name.ToLower()));
-		if (!string.IsNullOrEmpty(request.Email))
-			query = query.Where(q => q.Email.ToLower().Contains(request.Email.ToLower()));
-
-		var data = await query.OrderBy(q => q.Name).ThenBy(q => q.Email).ToListAsync(cancellationToken);
+		//using service
+		var data = await _customersService.GetCustomers(request, cancellationToken);
 		var result = new List<CustomersListQueryResponseDto>();
 		foreach (var item in data)
 			result.Add(item.toCustomersDto());//fill object using extension method
+
+
+		////including CustomerCategory table data to execute one single query
+		//var query = context.Customers.Include(t=>t.CustomerCategory).AsQueryable();
+		//if (!string.IsNullOrEmpty(request.Name))
+		//	query = query.Where(q => q.Name.ToLower().Contains(request.Name.ToLower()));
+		//if (!string.IsNullOrEmpty(request.Email))
+		//	query = query.Where(q => q.Email.ToLower().Contains(request.Email.ToLower()));
+
+		//var data = await query.OrderBy(q => q.Name).ThenBy(q => q.Email).ToListAsync(cancellationToken);
 
 		//previous code that call db n times
 		//foreach (var item in data)
